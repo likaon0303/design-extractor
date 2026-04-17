@@ -1,0 +1,13 @@
+{
+  "name": "design-md-cli",
+  "version": "1.0.0",
+  "description": "Install design.md extracted by Design.md Extractor Chrome extension",
+  "bin": {
+    "design-md-cli": "./index.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": ["design-md", "design-system", "claude-code"],
+  "license": "MIT"
+}
