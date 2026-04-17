@@ -2,6 +2,7 @@
 
 let generatedMarkdown = '';
 let currentTabUrl = '';
+const REPO = 'https://github.com/likaon0303/design-extractor';
 let currentView = 'idle'; // idle | progress | result | error | settings
 let previousView = 'idle'; // used to return from settings
 
@@ -143,7 +144,6 @@ function showResult(markdown) {
   const preview = markdown.substring(0, 600) + (markdown.length > 600 ? '\n...' : '');
   document.getElementById('resultPreview').textContent = preview;
 
-  const REPO = 'https://github.com/likaon0303/design-extractor';
   document.getElementById('cliCmd').textContent = `[ -d ~/design-extractor ] || git clone ${REPO} ~/design-extractor; cp ~/Downloads/design.md . && bash ~/design-extractor/install.sh`;
 
   showView('result');
@@ -160,13 +160,19 @@ async function handleCopyPreview() {
 
 async function handleDownload() {
   if (!generatedMarkdown) return;
+  const hostname = (() => {
+    try { return new URL(currentTabUrl).hostname.replace(/\./g, '-'); } catch { return 'site'; }
+  })();
+  const filename = `design-${hostname}.md`;
   const blob = new Blob([generatedMarkdown], { type: 'text/markdown' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = 'design.md';
+  a.download = filename;
   a.click();
   URL.revokeObjectURL(url);
+  document.getElementById('cliCmd').textContent =
+    `[ -d ~/design-extractor ] || git clone ${REPO} ~/design-extractor; cp ~/Downloads/${filename} ./design.md && bash ~/design-extractor/install.sh`;
 }
 
 async function handleCopyCli() {
