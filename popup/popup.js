@@ -143,7 +143,7 @@ function showResult(markdown) {
   const preview = markdown.substring(0, 600) + (markdown.length > 600 ? '\n...' : '');
   document.getElementById('resultPreview').textContent = preview;
 
-  const REPO = 'https://github.com/bartoszujma/design-extractor';
+  const REPO = 'https://github.com/likaon0303/design-extractor';
   document.getElementById('cliCmd').textContent = `[ -d ~/design-extractor ] || git clone ${REPO} ~/design-extractor; cp ~/Downloads/design.md . && bash ~/design-extractor/install.sh`;
 
   showView('result');
