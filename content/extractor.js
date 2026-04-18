@@ -24,6 +24,8 @@
       gradients,
       cssVariables,
       components: extractComponents(),
+      buttonVariants: extractButtonVariants(),
+      interactionStates: extractInteractionStates(),
       breakpoints: extractBreakpoints(),
       fonts: extractFonts(),
       icons: extractIconLibraries(),
@@ -83,11 +85,11 @@
     colors.slice(0, 10).forEach(({ color }) => {
       const lum = getLuminance(color);
       const sat = getSaturation(color);
-      if (lum > 0.85 && roles.backgrounds.length < 3)
+      if (lum > 0.85 && roles.backgrounds.length === 0)
         roles.backgrounds.push({ name: 'background', value: color });
       else if (lum > 0.5 && lum <= 0.85 && roles.surfaces.length < 2)
         roles.surfaces.push({ name: 'surface', value: color });
-      else if (lum < 0.04 && roles.text.length < 2)
+      else if (lum < 0.04 && roles.text.length === 0)
         roles.text.push({ name: 'text-primary', value: color });
     });
 
@@ -102,7 +104,8 @@
     });
 
     // Also flag saturated colors from frequency list that weren't classified
-    colors.forEach(({ color }) => {
+    colors.slice(0, 5).forEach(({ color }) => {
+      if (accentHexes.size >= 8) return;
       if (getSaturation(color) > 0.4 && getLuminance(color) > 0.02 && getLuminance(color) < 0.95) {
         if (!accentHexes.has(color)) {
           roles.accents.push({ name: 'accent', value: color });
@@ -169,6 +172,7 @@
       const el = document.querySelector(selector);
       if (el) {
         const s = window.getComputedStyle(el);
+        const featureSettings = s.getPropertyValue('font-feature-settings');
         result[selector] = {
           fontFamily: s.fontFamily,
           fontSize: s.fontSize,
@@ -176,7 +180,8 @@
           lineHeight: s.lineHeight,
           letterSpacing: s.letterSpacing !== 'normal' ? s.letterSpacing : '—',
           textTransform: s.textTransform !== 'none' ? s.textTransform : null,
-          color: rgbToHex(s.color) || s.color
+          color: rgbToHex(s.color) || s.color,
+          fontFeatureSettings: featureSettings && featureSettings !== 'normal' ? featureSettings : null
         };
       }
     });
@@ -774,6 +779,104 @@
     const b = parseInt(hex.slice(5,7), 16) / 255;
     const toLinear = c => c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
     return 0.2126 * toLinear(r) + 0.7152 * toLinear(g) + 0.0722 * toLinear(b);
+  }
+
+  // ─── Button Variants ─────────────────────────────────────────────────────────
+
+  function extractButtonVariants() {
+    const variants = [];
+    const seen = new Set();
+
+    const allBtns = Array.from(document.querySelectorAll(
+      'button, [class*="btn"], [role="button"], a[class*="cta"], a[class*="button"]'
+    )).filter(el => {
+      const s = window.getComputedStyle(el);
+      return s.display !== 'none' && s.visibility !== 'hidden' && s.opacity !== '0';
+    });
+
+    allBtns.forEach(btn => {
+      if (variants.length >= 5) return;
+      const s = window.getComputedStyle(btn);
+      const bgHex = rgbToHex(s.backgroundColor);
+      const colorHex = rgbToHex(s.color);
+      const radius = s.borderRadius;
+      const borderWidth = s.borderWidth;
+
+      const sig = `${bgHex}|${colorHex}|${radius}`;
+      if (seen.has(sig)) return;
+      seen.add(sig);
+
+      const isTransparent = !bgHex || s.backgroundColor === 'rgba(0, 0, 0, 0)';
+      const hasBorder = borderWidth && borderWidth !== '0px' && s.borderStyle !== 'none';
+      const isPill = parseFloat(radius) > 100;
+
+      let type = 'primary';
+      if (variants.length === 0) type = 'primary';
+      else if (isTransparent && hasBorder) type = 'outline';
+      else if (isTransparent) type = 'ghost';
+      else if (isPill) type = 'pill';
+      else type = 'secondary';
+
+      variants.push({
+        type,
+        backgroundColor: bgHex || 'transparent',
+        color: colorHex || s.color,
+        padding: s.padding,
+        borderRadius: radius,
+        fontSize: s.fontSize,
+        fontWeight: s.fontWeight,
+        border: cleanBorder(s.border),
+        transition: s.transition !== 'none' && s.transition !== 'all 0s ease 0s' ? s.transition : null,
+        letterSpacing: s.letterSpacing !== 'normal' ? s.letterSpacing : null,
+        textTransform: s.textTransform !== 'none' ? s.textTransform : null,
+        boxShadow: s.boxShadow !== 'none' ? s.boxShadow : null
+      });
+    });
+
+    return variants;
+  }
+
+  // ─── Interaction States ───────────────────────────────────────────────────────
+
+  function extractInteractionStates() {
+    const hover = {};
+    const focus = {};
+    const interesting = ['color', 'background-color', 'border-color', 'opacity', 'transform', 'box-shadow', 'text-decoration', 'outline'];
+
+    Array.from(document.styleSheets).forEach(sheet => {
+      try {
+        Array.from(sheet.cssRules || []).forEach(rule => {
+          const sel = rule.selectorText || '';
+          if (!rule.style) return;
+
+          const collectChanges = () => {
+            const changes = {};
+            interesting.forEach(prop => {
+              const val = rule.style.getPropertyValue(prop);
+              if (val) changes[prop] = val;
+            });
+            return changes;
+          };
+
+          if (sel.includes(':hover')) {
+            const base = sel.replace(/:hover\b.*/g, '').trim();
+            if (!hover[base] && Object.keys(hover).length < 8) {
+              const ch = collectChanges();
+              if (Object.keys(ch).length > 0) hover[base] = ch;
+            }
+          }
+          if (sel.includes(':focus')) {
+            const base = sel.replace(/:focus\b.*/g, '').trim();
+            if (!focus[base] && Object.keys(focus).length < 6) {
+              const ch = collectChanges();
+              if (Object.keys(ch).length > 0) focus[base] = ch;
+            }
+          }
+        });
+      } catch(e) {}
+    });
+
+    return { hover, focus };
   }
 
   // ─── Message listener ────────────────────────────────────────────────────────

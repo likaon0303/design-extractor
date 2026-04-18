@@ -4,13 +4,28 @@ let generatedMarkdown = '';
 let currentTabUrl = '';
 let downloadFilename = 'design.md';
 const REPO = 'https://github.com/likaon0303/design-extractor';
-let currentView = 'idle'; // idle | progress | result | error | settings
-let previousView = 'idle'; // used to return from settings
+let currentView = 'idle';
 
 document.addEventListener('DOMContentLoaded', async () => {
-  await loadSettings();
   await loadCurrentTab();
   setupButtons();
+
+  const { savedResult } = await chrome.storage.session.get('savedResult');
+  if (savedResult) {
+    const currentHostname = (() => { try { return new URL(currentTabUrl).hostname; } catch { return ''; } })();
+    if (savedResult.hostname && savedResult.hostname !== currentHostname) {
+      chrome.storage.session.remove('savedResult');
+    } else {
+      generatedMarkdown = savedResult.markdown;
+      downloadFilename = savedResult.downloadFilename;
+      document.getElementById('resultStats').textContent = savedResult.stats;
+      const preview = savedResult.markdown.substring(0, 600) + (savedResult.markdown.length > 600 ? '\n...' : '');
+      document.getElementById('resultPreview').textContent = preview;
+      document.getElementById('cliCmd').textContent = savedResult.cliCmd;
+      showView('result');
+      return;
+    }
+  }
 });
 
 // --- Init ---
@@ -25,22 +40,15 @@ async function loadCurrentTab() {
     host = u.hostname + (u.pathname !== '/' ? u.pathname : '');
   } catch {}
   document.getElementById('siteHost').textContent = host;
-  document.getElementById('progressHost').textContent = host;
-}
-
-async function loadSettings() {
-  const { filename } = await chrome.storage.local.get('filename');
-  if (filename) document.getElementById('filenameInput').value = filename;
 }
 
 function setupButtons() {
-  document.getElementById('btnExtract').addEventListener('click', handleExtract);
-  document.getElementById('btnRetry').addEventListener('click', handleRetry);
-  document.getElementById('btnDownload').addEventListener('click', handleDownload);
-  document.getElementById('btnCopyPreview').addEventListener('click', handleCopyPreview);
-  document.getElementById('btnCopyCli').addEventListener('click', handleCopyCli);
-  document.getElementById('btnSettings').addEventListener('click', handleSettings);
-  document.getElementById('filenameInput').addEventListener('change', saveFilename);
+  document.getElementById('btnExtract')?.addEventListener('click', handleExtract);
+  document.getElementById('btnRetry')?.addEventListener('click', handleRetry);
+  document.getElementById('btnRefresh')?.addEventListener('click', handleRetry);
+  document.getElementById('btnDownload')?.addEventListener('click', handleDownload);
+  document.getElementById('btnCopyPreview')?.addEventListener('click', handleCopyPreview);
+  document.getElementById('btnCopyCli')?.addEventListener('click', handleCopyCli);
 }
 
 // --- Navigation ---
@@ -50,20 +58,8 @@ function showView(name) {
   const el = document.querySelector(`[data-view="${name}"]`);
   if (el) el.classList.add('active');
   currentView = name;
-}
-
-// --- Settings toggle ---
-
-function handleSettings() {
-  if (currentView === 'settings') {
-    showView(previousView);
-  } else {
-    previousView = currentView;
-    showView('settings');
-  }
-  const isSettings = currentView === 'settings';
-  document.getElementById('iconGear').style.display  = isSettings ? 'none'  : 'block';
-  document.getElementById('iconClose').style.display = isSettings ? 'block' : 'none';
+  const subtitle = document.getElementById('subtitle');
+  subtitle.classList.toggle('hidden', name === 'result' || name === 'error');
 }
 
 // --- Extract flow ---
@@ -75,6 +71,7 @@ async function handleExtract() {
   try {
     setStep(1, 'active');
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (!tab) throw new Error('No active tab found');
 
     await chrome.scripting.executeScript({
       target: { tabId: tab.id },
@@ -86,12 +83,15 @@ async function handleExtract() {
     setStep(1, 'done');
     setStep(2, 'active');
 
-    const response = await new Promise((resolve, reject) => {
-      chrome.tabs.sendMessage(tab.id, { action: 'extractDesign' }, (res) => {
-        if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));
-        else resolve(res);
-      });
-    });
+    const response = await Promise.race([
+      new Promise((resolve, reject) => {
+        chrome.tabs.sendMessage(tab.id, { action: 'extractDesign' }, (res) => {
+          if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));
+          else resolve(res);
+        });
+      }),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Extraction timed out (30s)')), 30000))
+    ]);
 
     if (!response?.success) throw new Error(response?.error || 'Failed to extract design data');
 
@@ -132,6 +132,7 @@ async function generateDesignMd(designData) {
 }
 
 function handleRetry() {
+  chrome.storage.session.remove('savedResult');
   showView('idle');
 }
 
@@ -149,18 +150,36 @@ function showResult(markdown) {
     try { return new URL(currentTabUrl).hostname.replace(/\./g, '-'); } catch { return 'site'; }
   })();
   downloadFilename = `design-${hostname}.md`;
-  document.getElementById('cliCmd').textContent = `[ -d ~/design-extractor ] || git clone ${REPO} ~/design-extractor; cp ~/Downloads/${downloadFilename} ./design.md && bash ~/design-extractor/install.sh`;
+  document.getElementById('cliCmd').textContent = `[ -f ~/design-extractor/install.sh ] || git clone ${REPO} ~/design-extractor; cp ~/Downloads/${downloadFilename} ./design.md && bash ~/design-extractor/install.sh`;
 
   showView('result');
+
+  chrome.storage.session.set({
+    savedResult: {
+      markdown,
+      downloadFilename,
+      cliCmd: document.getElementById('cliCmd').textContent,
+      stats: document.getElementById('resultStats').textContent,
+      hostname: (() => { try { return new URL(currentTabUrl).hostname; } catch { return ''; } })()
+    }
+  });
+}
+
+const COPY_SVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+  </svg>`;
+const COPIED_HTML = '<span style="font-size:10px;font-family:var(--sans);letter-spacing:-0.03em;color:#196FE2">Copied!</span>';
+
+function flashCopied(btn) {
+  btn.innerHTML = COPIED_HTML;
+  setTimeout(() => { btn.innerHTML = COPY_SVG; }, 1500);
 }
 
 async function handleCopyPreview() {
   if (!generatedMarkdown) return;
   await navigator.clipboard.writeText(generatedMarkdown);
-  const btn = document.getElementById('btnCopyPreview');
-  const orig = btn.textContent;
-  btn.textContent = 'Copied!';
-  setTimeout(() => { btn.textContent = orig; }, 1500);
+  flashCopied(document.getElementById('btnCopyPreview'));
 }
 
 async function handleDownload() {
@@ -177,16 +196,7 @@ async function handleDownload() {
 async function handleCopyCli() {
   const cmd = document.getElementById('cliCmd').textContent;
   await navigator.clipboard.writeText(cmd);
-  const btn = document.getElementById('btnCopyCli');
-  btn.style.color = 'var(--blue)';
-  setTimeout(() => { btn.style.color = ''; }, 1500);
-}
-
-// --- Settings ---
-
-async function saveFilename() {
-  const filename = document.getElementById('filenameInput').value.trim() || 'design.md';
-  await chrome.storage.local.set({ filename });
+  flashCopied(document.getElementById('btnCopyCli'));
 }
 
 // --- UI helpers ---

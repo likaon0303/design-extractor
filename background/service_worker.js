@@ -107,13 +107,6 @@ function buildDesignMd(d) {
     lines.push('');
   }
 
-  // Brand/Accent colors — shown prominently even if low frequency
-  if (roles.accents?.length > 0) {
-    lines.push('### Brand / Accent');
-    roles.accents.slice(0, 6).forEach(({ name, value }) => lines.push(`- ${name}: \`${value}\``));
-    lines.push('');
-  }
-
   // Top colors by frequency (raw data)
   if (d.colors?.length > 0) {
     lines.push('### All Colors by Frequency');
@@ -131,6 +124,33 @@ function buildDesignMd(d) {
       lines.push(`| \`${color}\` | ${count} | ${role} |`);
     });
     lines.push('');
+  }
+
+  // ── Color Usage Rules ───────────────────────────────────────────────────────
+  {
+    const pairs = buildColorPairs(d);
+    const colorRules = buildColorRules(d);
+
+    if (pairs.length > 0 || colorRules.length > 0) {
+      lines.push('### Color Usage Rules');
+      lines.push('');
+
+      if (pairs.length > 0) {
+        lines.push('**Valid text/background combinations (WCAG contrast):**');
+        lines.push('');
+        lines.push('| Background | Text | Contrast | Rating |');
+        lines.push('|-----------|------|----------|--------|');
+        pairs.forEach(({ bg, text, ratio, rating }) => {
+          lines.push(`| \`${bg}\` | \`${text}\` | ${ratio}:1 | ${rating} |`);
+        });
+        lines.push('');
+      }
+
+      if (colorRules.length > 0) {
+        colorRules.forEach(rule => lines.push(`- ${rule}`));
+        lines.push('');
+      }
+    }
   }
 
   // ── 3. Gradients ────────────────────────────────────────────────────────────
@@ -186,17 +206,63 @@ function buildDesignMd(d) {
   const typo = d.typography || {};
   const fonts = d.fonts || {};
 
-  // Font families
-  if (fonts.detected?.length > 0 || fonts.mono?.length > 0) {
-    lines.push('### Font Families');
-    if (fonts.detected?.length > 0) lines.push(`- Primary (UI): ${fonts.detected[0]}`);
-    if (fonts.detected?.length > 1) lines.push(`- Secondary (Display): ${fonts.detected[1]}`);
-    if (fonts.mono?.length > 0)     lines.push(`- Monospace (Code): ${fonts.mono[0]}`);
-    if (fonts.googleFontsUrls?.length > 0) {
-      lines.push(`- Font loading: Google Fonts`);
-      fonts.googleFontsUrls.forEach(u => lines.push(`  ${u}`));
+  // Font families — full stacks from computed typography data
+  {
+    const fontRoles = [];
+    const seenPrimary = new Set();
+
+    const roleMap = [
+      { selectors: ['h1', 'h2', 'h3'], role: 'Display / Heading' },
+      { selectors: ['p', 'a', 'small'], role: 'Body' },
+      { selectors: ['button', 'label'], role: 'UI / Button' },
+      { selectors: ['code'], role: 'Monospace / Code' }
+    ];
+
+    roleMap.forEach(({ selectors, role }) => {
+      for (const sel of selectors) {
+        const t = typo[sel];
+        if (!t?.fontFamily) continue;
+        const primary = t.fontFamily.split(',')[0].replace(/['"]/g, '').trim();
+        if (!primary || seenPrimary.has(primary)) break;
+        seenPrimary.add(primary);
+        fontRoles.push({ role, primary, full: t.fontFamily, featureSettings: t.fontFeatureSettings });
+        break;
+      }
+    });
+
+    // Fallback to fonts.detected if typography didn't yield results
+    if (fontRoles.length === 0 && fonts.detected?.length > 0) {
+      if (fonts.detected[0]) fontRoles.push({ role: 'Primary (UI)', primary: fonts.detected[0], full: fonts.detected[0] });
+      if (fonts.detected[1]) fontRoles.push({ role: 'Secondary (Display)', primary: fonts.detected[1], full: fonts.detected[1] });
     }
-    lines.push('');
+    if (fonts.mono?.length > 0 && !fontRoles.find(r => r.role === 'Monospace / Code')) {
+      fontRoles.push({ role: 'Monospace / Code', primary: fonts.mono[0], full: fonts.mono[0] });
+    }
+
+    if (fontRoles.length > 0) {
+      lines.push('### Font Families');
+      lines.push('');
+      fontRoles.forEach(({ role, primary, full }) => {
+        lines.push(`- **${role}**: \`${primary}\``);
+        if (full && full !== primary) {
+          lines.push(`  - Fallbacks: \`${full}\``);
+        }
+      });
+      if (fonts.googleFontsUrls?.length > 0) {
+        lines.push(`- Font loading: Google Fonts`);
+      }
+      lines.push('');
+
+      // OpenType features
+      const otFeatures = fontRoles.filter(r => r.featureSettings);
+      if (otFeatures.length > 0) {
+        lines.push('### OpenType Features');
+        otFeatures.forEach(({ role, primary, featureSettings }) => {
+          lines.push(`- \`${primary}\` (${role}): \`font-feature-settings: ${featureSettings}\``);
+        });
+        lines.push('');
+      }
+    }
   }
 
   // Fluid typography note
@@ -265,22 +331,27 @@ function buildDesignMd(d) {
 
   const comp = d.components || {};
 
-  if (comp.button) {
-    const s = comp.button.sample;
+  // Button variants — use new multi-variant data if available, fallback to single
+  const btnVariants = d.buttonVariants?.length > 0 ? d.buttonVariants : (comp.button ? [{ type: 'primary', ...comp.button.sample }] : []);
+  if (btnVariants.length > 0) {
     lines.push('### Buttons');
     lines.push('');
-    lines.push('**Primary**');
-    lines.push(`- Background: \`${s.backgroundColor}\``);
-    lines.push(`- Text: \`${s.color}\``);
-    if (s.border && s.border !== 'none') lines.push(`- Border: \`${s.border}\``);
-    lines.push(`- Border radius: \`${s.borderRadius}\``);
-    lines.push(`- Padding: \`${s.padding}\``);
-    lines.push(`- Font: ${s.fontSize} / ${s.fontWeight}`);
-    if (s.letterSpacing && s.letterSpacing !== 'normal') lines.push(`- Letter spacing: ${s.letterSpacing}`);
-    if (s.textTransform && s.textTransform !== 'none') lines.push(`- Text transform: ${s.textTransform}`);
-    if (s.transition) lines.push(`- Transition: \`${s.transition}\``);
-    lines.push(`- Count on page: ${comp.button.count}`);
-    lines.push('');
+    btnVariants.forEach(s => {
+      const label = s.type ? s.type.charAt(0).toUpperCase() + s.type.slice(1) : 'Primary';
+      lines.push(`**${label}**`);
+      lines.push(`- Background: \`${s.backgroundColor}\``);
+      lines.push(`- Text: \`${s.color}\``);
+      if (s.border && s.border !== 'none') lines.push(`- Border: \`${s.border}\``);
+      lines.push(`- Border radius: \`${s.borderRadius}\``);
+      lines.push(`- Padding: \`${s.padding}\``);
+      lines.push(`- Font: ${s.fontSize} / ${s.fontWeight}`);
+      if (s.letterSpacing) lines.push(`- Letter spacing: ${s.letterSpacing}`);
+      if (s.textTransform) lines.push(`- Text transform: ${s.textTransform}`);
+      if (s.boxShadow) lines.push(`- Shadow: \`${s.boxShadow}\``);
+      if (s.transition) lines.push(`- Transition: \`${s.transition}\``);
+      lines.push('');
+    });
+    if (comp.button?.count) lines.push(`> ${comp.button.count} button elements detected on page\n`);
   }
 
   if (comp.card) {
@@ -341,8 +412,17 @@ function buildDesignMd(d) {
 
     if (d.shadows?.length > 0) {
       lines.push('### Shadows & Elevation');
+      lines.push('');
+      lines.push('| Level | Shadow |');
+      lines.push('|-------|--------|');
+      const shadowLabels = ['Subtle (cards)', 'Standard (floating)', 'Elevated (modals)', 'Focus ring'];
+      d.shadows.slice(0, 6).forEach((s, i) => {
+        const label = shadowLabels[i] || `Level ${i + 1}`;
+        lines.push(`| ${label} | \`${s.length > 80 ? s.slice(0, 80) + '…' : s}\` |`);
+      });
+      lines.push('');
       lines.push('```css');
-      d.shadows.slice(0, 8).forEach((s, i) => lines.push(`/* shadow-${i+1} */ box-shadow: ${s};`));
+      d.shadows.slice(0, 6).forEach((s, i) => lines.push(`/* shadow-${i+1} */ box-shadow: ${s};`));
       lines.push('```');
       lines.push('');
     }
@@ -398,6 +478,42 @@ function buildDesignMd(d) {
     }
   }
 
+  // ── Interaction States ───────────────────────────────────────────────────────
+  const iStates = d.interactionStates || {};
+  const hoverEntries = Object.entries(iStates.hover || {}).slice(0, 6);
+  const focusEntries = Object.entries(iStates.focus || {}).slice(0, 4);
+
+  if (hoverEntries.length > 0 || focusEntries.length > 0) {
+    lines.push('## Interaction States');
+    lines.push('');
+
+    if (hoverEntries.length > 0) {
+      lines.push('### Hover');
+      lines.push('```css');
+      hoverEntries.forEach(([sel, changes]) => {
+        if (!sel) return;
+        lines.push(`${sel}:hover {`);
+        Object.entries(changes).forEach(([prop, val]) => lines.push(`  ${prop}: ${val};`));
+        lines.push('}');
+      });
+      lines.push('```');
+      lines.push('');
+    }
+
+    if (focusEntries.length > 0) {
+      lines.push('### Focus');
+      lines.push('```css');
+      focusEntries.forEach(([sel, changes]) => {
+        if (!sel) return;
+        lines.push(`${sel}:focus {`);
+        Object.entries(changes).forEach(([prop, val]) => lines.push(`  ${prop}: ${val};`));
+        lines.push('}');
+      });
+      lines.push('```');
+      lines.push('');
+    }
+  }
+
   // ── Decorative details ──────────────────────────────────────────────────────
   const deco = d.decorative || {};
   const scrollbar = deco.scrollbar || {};
@@ -447,6 +563,39 @@ function buildDesignMd(d) {
     lines.push('');
   }
 
+  // ── Design Rules ─────────────────────────────────────────────────────────────
+  lines.push('## Design Rules');
+  lines.push('');
+  lines.push('These rules are derived from the extracted design system. Follow them exactly.');
+  lines.push('');
+
+  // Typography rules
+  lines.push('### Typography');
+  {
+    const typoRules = buildTypographyRules(d);
+    typoRules.forEach(r => lines.push(`- ${r}`));
+  }
+  lines.push('');
+
+  // Spacing rules
+  lines.push('### Spacing');
+  {
+    const scaleVals = (d.spacing?.values || []).filter(v => v.endsWith('px')).slice(0, 8).join(', ');
+    if (scaleVals) lines.push(`- Use **only** these spacing values: ${scaleVals}`);
+    lines.push(`- Base unit: ${d.spacing?.baseUnit || '8px'} — always multiply by integers`);
+    lines.push('- Never use magic numbers (e.g. 13px, 17px) — round to nearest scale value');
+    lines.push('- Consistent padding within same component type — never mix scales');
+  }
+  lines.push('');
+
+  // Component rules
+  lines.push('### Components');
+  {
+    const compRules = buildComponentRules(d);
+    compRules.forEach(r => lines.push(`- ${r}`));
+  }
+  lines.push('');
+
   // ── 9. Do's and Don'ts ──────────────────────────────────────────────────────
   lines.push('## Do\'s and Don\'ts');
   lines.push('');
@@ -477,9 +626,32 @@ function buildDesignMd(d) {
   lines.push('');
   lines.push('Always reference this file before generating or modifying any UI component.');
   lines.push('');
+
+  // Quick Color Reference table
+  const colorRef = [];
+  if (roles.backgrounds?.[0])  colorRef.push({ token: 'Page background', value: roles.backgrounds[0].value, use: 'Body, page background' });
+  if (roles.surfaces?.[0])     colorRef.push({ token: 'Surface', value: roles.surfaces[0].value, use: 'Cards, panels' });
+  if (roles.text?.[0])         colorRef.push({ token: 'Primary text', value: roles.text[0].value, use: 'All body text, headings' });
+  if (roles.accents?.[0])      colorRef.push({ token: 'Accent / CTA', value: roles.accents[0].value, use: 'Primary CTAs, links, brand' });
+  if (roles.semantic?.error)   colorRef.push({ token: 'Error', value: roles.semantic.error, use: 'Error states, destructive actions' });
+  if (roles.semantic?.success) colorRef.push({ token: 'Success', value: roles.semantic.success, use: 'Success states, confirmations' });
+  if (roles.semantic?.warning) colorRef.push({ token: 'Warning', value: roles.semantic.warning, use: 'Warning states' });
+
+  if (colorRef.length > 0) {
+    lines.push('### Quick Color Reference');
+    lines.push('');
+    lines.push('| Token | Value | Use |');
+    lines.push('|-------|-------|-----|');
+    colorRef.forEach(({ token, value, use }) => lines.push(`| ${token} | \`${value}\` | ${use} |`));
+    lines.push('');
+  }
+
+  lines.push('### Rules');
+  lines.push('');
   lines.push('- Use **only** colors from "Color Palette & Roles" — never invent values');
-  if (d.fonts?.detected?.length > 0) {
-    lines.push(`- Use **only** ${d.fonts.detected[0]} font family — never substitute`);
+  {
+    const primaryFont = d.typography?.h1?.fontFamily?.split(',')[0].replace(/['"]/g, '').trim() || d.fonts?.detected?.[0];
+    if (primaryFont) lines.push(`- Use **only** \`${primaryFont}\` for display/heading text — never substitute`);
   }
   lines.push('- Apply spacing from the defined scale — maintain the base grid unit');
   lines.push('- Match all component states: hover, focus, active, disabled');
@@ -491,6 +663,30 @@ function buildDesignMd(d) {
   }
   lines.push('- Respect `prefers-reduced-motion` for all animations');
   lines.push('- When in doubt about any value not listed — ask, do not guess');
+  lines.push('');
+
+  // Quality checklist
+  lines.push('### Quality Checklist');
+  lines.push('');
+  lines.push('Before submitting any UI component, verify:');
+  lines.push('');
+  lines.push('- [ ] All colors from defined palette — no invented values');
+  lines.push('- [ ] All spacing from defined scale — no magic numbers');
+  lines.push(`- [ ] Font: ${(d.typography?.h1?.fontFamily?.split(',')[0].replace(/['"]/g, '').trim() || d.fonts?.detected?.[0] || 'correct font')} used — no substitutes`);
+  lines.push('- [ ] Hover state defined for every interactive element');
+  lines.push('- [ ] Focus state defined (keyboard navigation)');
+  lines.push('- [ ] Disabled state considered');
+  if (d.breakpoints?.length > 0) {
+    lines.push(`- [ ] Mobile layout tested (< ${d.breakpoints[0]})`);
+  }
+  if (d.animations?.transitions?.length > 0) {
+    lines.push('- [ ] `prefers-reduced-motion` handled for animations');
+  }
+  lines.push('- [ ] No hardcoded `#000000` or `#ffffff` unless in defined palette');
+  lines.push('- [ ] Border radius from defined scale only');
+  if (d.shadows?.length > 0) {
+    lines.push('- [ ] Shadow from defined elevation levels only');
+  }
 
   return lines.join('\n');
 }
@@ -501,7 +697,7 @@ function buildSpacingScale(pxValues, baseUnit) {
   const base = parseInt(baseUnit) || 8;
   const names = ['xs', 'sm', 'md', 'lg', 'xl', '2xl', '3xl', '4xl'];
   // Deduplicate and sort
-  const unique = [...new Set(pxValues.map(v => parseFloat(v)))].sort((a, b) => a - b);
+  const unique = [...new Set(pxValues.map(v => parseFloat(v)).filter(v => !isNaN(v)))].sort((a, b) => a - b);
   return unique.slice(0, 8).map((val, i) => ({
     name: names[i] || `${i+1}x`,
     value: `${val}px`
@@ -561,4 +757,191 @@ function buildDonts(d) {
 
 function capitalize(str) {
   return str.charAt(0).toUpperCase() + str.slice(1);
+}
+
+// ── Color contrast helpers ────────────────────────────────────────────────────
+
+function hexLuminance(hex) {
+  if (!hex || !hex.startsWith('#') || hex.length < 7) return 0.5;
+  const r = parseInt(hex.slice(1, 3), 16) / 255;
+  const g = parseInt(hex.slice(3, 5), 16) / 255;
+  const b = parseInt(hex.slice(5, 7), 16) / 255;
+  const toLinear = c => c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+  return 0.2126 * toLinear(r) + 0.7152 * toLinear(g) + 0.0722 * toLinear(b);
+}
+
+function contrastRatio(hex1, hex2) {
+  const l1 = hexLuminance(hex1);
+  const l2 = hexLuminance(hex2);
+  const lighter = Math.max(l1, l2);
+  const darker = Math.min(l1, l2);
+  return Math.round(((lighter + 0.05) / (darker + 0.05)) * 10) / 10;
+}
+
+function wcagRating(ratio) {
+  if (ratio >= 7) return 'AAA ✓';
+  if (ratio >= 4.5) return 'AA ✓';
+  if (ratio >= 3) return 'AA Large ✓';
+  return 'Fail ✗';
+}
+
+function buildColorPairs(d) {
+  const roles = d.colorRoles || {};
+  const pairs = [];
+  const seen = new Set();
+
+  const bgs = [...(roles.backgrounds || []), ...(roles.surfaces || [])].slice(0, 4);
+  const texts = [...(roles.text || [])].slice(0, 3);
+  const accents = [...(roles.accents || [])].slice(0, 2);
+
+  const candidates = [...texts, ...accents];
+
+  bgs.forEach(bg => {
+    if (!bg.value?.startsWith('#')) return;
+    candidates.forEach(text => {
+      if (!text.value?.startsWith('#')) return;
+      const key = `${bg.value}|${text.value}`;
+      if (seen.has(key)) return;
+      seen.add(key);
+      const ratio = contrastRatio(bg.value, text.value);
+      if (ratio < 2) return; // skip near-identical pairs
+      pairs.push({ bg: bg.value, text: text.value, ratio, rating: wcagRating(ratio) });
+    });
+  });
+
+  // Also check most frequent colors against each other
+  const topColors = (d.colors || []).slice(0, 8).map(c => c.color);
+  for (let i = 0; i < topColors.length; i++) {
+    for (let j = i + 1; j < topColors.length; j++) {
+      const key = `${topColors[i]}|${topColors[j]}`;
+      if (seen.has(key) || pairs.length >= 8) continue;
+      seen.add(key);
+      const ratio = contrastRatio(topColors[i], topColors[j]);
+      if (ratio >= 4.5) {
+        pairs.push({ bg: topColors[i], text: topColors[j], ratio, rating: wcagRating(ratio) });
+      }
+    }
+  }
+
+  return pairs.sort((a, b) => b.ratio - a.ratio).slice(0, 6);
+}
+
+function buildColorRules(d) {
+  const rules = [];
+  const roles = d.colorRoles || {};
+  const theme = d.theme || {};
+
+  if (roles.accents?.length > 0) {
+    const accent = roles.accents[0].value;
+    rules.push(`Accent \`${accent}\` — use for primary CTAs and brand moments only, never for body text`);
+  }
+  if (roles.text?.length > 0) {
+    const text = roles.text[0].value;
+    rules.push(`Primary text \`${text}\` — default for all body copy and headings`);
+    if (roles.text.length > 1) {
+      rules.push(`Muted text — use alpha variant of primary text, not a separate grey`);
+    }
+  }
+  if (roles.semantic?.error) {
+    rules.push(`Error \`${roles.semantic.error}\` — destructive actions and validation errors only`);
+  }
+  if (roles.semantic?.success) {
+    rules.push(`Success \`${roles.semantic.success}\` — confirmation states only`);
+  }
+  if (theme.isDark) {
+    rules.push('Dark theme — never introduce white or light backgrounds without explicit design approval');
+  }
+  rules.push('Never invent a color not in this palette — use opacity/alpha of existing colors instead');
+
+  return rules;
+}
+
+// ── Typography rules ─────────────────────────────────────────────────────────
+
+function buildTypographyRules(d) {
+  const rules = [];
+  const typo = d.typography || {};
+  const fonts = d.fonts || {};
+
+  const h1Font = typo.h1?.fontFamily?.split(',')[0].replace(/['"]/g, '').trim();
+  const bodyFont = typo.p?.fontFamily?.split(',')[0].replace(/['"]/g, '').trim();
+  const codeFont = typo.code?.fontFamily?.split(',')[0].replace(/['"]/g, '').trim() || fonts.mono?.[0];
+
+  if (h1Font) rules.push(`Headings: \`${h1Font}\` — never substitute with system fonts`);
+  if (bodyFont && bodyFont !== h1Font) rules.push(`Body text: \`${bodyFont}\``);
+  if (codeFont) rules.push(`Code/mono: \`${codeFont}\` — for all technical content`);
+
+  // Sizes
+  const sizes = Object.entries(typo)
+    .filter(([k]) => !k.startsWith('_'))
+    .map(([, v]) => parseFloat(v.fontSize))
+    .filter(Boolean)
+    .sort((a, b) => a - b);
+  const uniqueSizes = [...new Set(sizes)];
+  if (uniqueSizes.length > 0) {
+    rules.push(`Font sizes — use only: ${uniqueSizes.map(s => `${s}px`).join(', ')}`);
+  }
+
+  rules.push('Never use more than 3 distinct font sizes within a single UI section');
+  rules.push('Establish hierarchy through size and weight — not color alone');
+  rules.push('Never bold body text for emphasis — use size increase or color change instead');
+
+  const h1LS = typo.h1?.letterSpacing;
+  if (h1LS && h1LS !== '—' && h1LS !== '0px') {
+    rules.push(`Display headings require letter-spacing: \`${h1LS}\` — do not omit`);
+  }
+
+  return rules;
+}
+
+// ── Component rules ───────────────────────────────────────────────────────────
+
+function buildComponentRules(d) {
+  const rules = [];
+  const comp = d.components || {};
+  const variants = d.buttonVariants || [];
+  const theme = d.theme || {};
+
+  // Button rules
+  if (variants.length > 0 || comp.button) {
+    const primary = variants[0] || comp.button?.sample;
+    if (primary) {
+      rules.push(`Primary button: \`${primary.backgroundColor}\` background, \`${primary.color}\` text, \`${primary.borderRadius}\` radius — do not invert`);
+    }
+    rules.push('Every button must have a visible hover state — color shift or shadow change');
+    rules.push('Every interactive element must have a focus-visible outline for keyboard navigation');
+  }
+
+  // Card rules
+  if (comp.card?.sample) {
+    const card = comp.card.sample;
+    const hasShadow = !!card.boxShadow;
+    const hasBorder = card.border && card.border !== 'none';
+    if (hasShadow && !hasBorder) rules.push('Cards use shadow for elevation — no additional border needed');
+    if (hasBorder && !hasShadow) rules.push('Cards use border — no drop shadow unless hovering');
+    if (card.borderRadius) rules.push(`Card border-radius: \`${card.borderRadius}\` — consistent across all card variants`);
+  }
+
+  // Input rules
+  if (comp.input?.sample) {
+    rules.push('Form inputs must show clear focus state (border color change or outline)');
+    rules.push('Never remove default browser focus ring without providing a custom replacement');
+  }
+
+  // Radius rules
+  if (d.borderRadius?.length > 0) {
+    rules.push(`Border radius — use only: ${d.borderRadius.slice(0, 5).join(', ')}`);
+  }
+
+  // Shadow rules
+  if (d.shadows?.length > 0) {
+    rules.push(`Use only defined shadow levels — never invent new box-shadow values`);
+  }
+
+  // Minimal/flat
+  if (theme.isMinimal) {
+    rules.push('Flat design — avoid adding decorative shadows or heavy borders not in the system');
+  }
+
+  return rules;
 }

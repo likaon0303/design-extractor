@@ -3,7 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>echo — design.md extractor</title>
+  <title>Design.md Extractor</title>
+  <link rel="preconnect" href="https://api.fontshare.com">
+  <link href="https://api.fontshare.com/v2/css?f[]=satoshi@700,400&display=swap" rel="stylesheet">
   <style>
     * {
       margin: 0;
@@ -13,107 +15,81 @@
 
     :root {
       --bg: #FFFFFF;
-      --surface: #F4F4F4;
+      --surface: #F0F0F0;
       --border: #E8E8E8;
       --text: #141414;
       --text-muted: #6B6B6B;
       --text-dim: #ADADAD;
       --blue: #1C6EF2;
       --mono: 'SF Mono', 'Fira Code', 'Fira Mono', 'Roboto Mono', monospace;
-      --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      --sans: 'Satoshi Variable', 'Satoshi', -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif;
     }
 
     body {
-      width: 380px;
+      width: 399px;
+      padding: 24px;
       background: var(--bg);
       color: var(--text);
       font-family: var(--sans);
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
     }
 
-    /* ── Header ──────────────────────────────────────────── */
+    /* ── View header (logo + subtitle) ──────────────────────── */
 
-    .header {
+    .view-header {
       display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 16px 20px;
-      border-bottom: 1px solid var(--border);
+      flex-direction: column;
+      gap: 20px;
     }
 
     .logo img {
-      height: 20px;
+      height: 22px;
       display: block;
     }
 
-    .btn-settings {
-      background: none;
-      border: none;
-      cursor: pointer;
-      color: var(--text-dim);
-      padding: 4px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: color 0.15s, background 0.15s;
+    .subtitle {
+      font-size: 12px;
+      color: rgba(0, 0, 0, 0.64);
+      letter-spacing: -0.03em;
+      line-height: 1.4;
     }
 
-    .btn-settings:hover {
-      color: var(--text);
-      background: var(--surface);
+    .subtitle strong {
+      font-weight: 700;
+      color: rgba(0, 0, 0, 0.64);
     }
 
-    .btn-settings svg {
-      width: 16px;
-      height: 16px;
+    .subtitle.hidden {
+      display: none;
     }
 
-    /* ── Body area ───────────────────────────────────────── */
-
-    .body {
-      padding: 20px;
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
-    }
-
-    /* ── Views ───────────────────────────────────────────── */
+    /* ── Views ───────────────────────────────────────────────── */
 
     [data-view] {
       display: none;
       flex-direction: column;
-      gap: 16px;
+      gap: 24px;
     }
 
     [data-view].active {
       display: flex;
     }
 
-    /* ── Subtitle ─────────────────────────────────────────── */
-
-    .subtitle {
-      font-size: 13px;
-      color: var(--text-muted);
-      line-height: 1.5;
-    }
-
-    .subtitle strong {
-      color: var(--text);
-      font-weight: 500;
-    }
-
-    /* ── Extract button ───────────────────────────────────── */
+    /* ── Extract button ──────────────────────────────────────── */
 
     .btn-extract {
       width: 100%;
-      padding: 13px 20px;
-      background: var(--text);
-      color: var(--bg);
+      padding: 12px;
+      background: #1B1B1B;
+      color: #FFFFFF;
       border: none;
       font-family: var(--sans);
-      font-size: 14px;
-      font-weight: 600;
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: -0.03em;
       cursor: pointer;
-      letter-spacing: -0.01em;
       transition: background 0.15s, opacity 0.15s;
     }
 
@@ -126,69 +102,75 @@
       cursor: not-allowed;
     }
 
-    /* ── Progress ─────────────────────────────────────────── */
+    /* ── Progress ────────────────────────────────────────────── */
 
     .progress-steps {
       display: flex;
       flex-direction: column;
-      background: var(--surface);
-      overflow: hidden;
-      padding: 4px 0;
+      background: rgba(220, 220, 220, 0.32);
+      padding: 8px;
+      gap: 10px;
     }
 
     .step {
       display: flex;
       align-items: center;
-      gap: 12px;
-      font-size: 13px;
-      color: var(--text-dim);
-      padding: 10px 16px;
+      gap: 8px;
+      font-size: 12px;
+      font-weight: 400;
+      letter-spacing: -0.03em;
+      color: rgba(0, 0, 0, 0.40);
       transition: color 0.2s;
     }
 
-    .step.active { color: var(--text); }
-    .step.done   { color: var(--text-muted); }
+    .step.active { color: rgba(0, 0, 0, 0.64); }
+    .step.done   { color: rgba(0, 0, 0, 0.40); }
 
     .step-circle {
-      width: 20px;
-      height: 20px;
+      width: 16px;
+      height: 16px;
       border-radius: 50%;
-      border: 1.5px solid var(--border);
       flex-shrink: 0;
       display: flex;
       align-items: center;
       justify-content: center;
-      background: var(--bg);
+      background: #E2E2E2;
       transition: all 0.2s;
     }
 
     .step.active .step-circle {
-      border-color: var(--blue);
-      border-width: 2px;
+      background: #E2E2E2;
+      border: 1px solid #196FE2;
       animation: pulse-ring 1.2s ease-in-out infinite;
     }
 
     .step.done .step-circle {
-      background: var(--blue);
-      border-color: var(--blue);
+      background: #C9D7E7;
+      border: none;
     }
 
     .step.done .step-circle::after {
       content: '';
       display: block;
-      width: 5px;
-      height: 9px;
-      border-right: 1.5px solid #fff;
-      border-bottom: 1.5px solid #fff;
+      width: 4px;
+      height: 7px;
+      border-right: 1.5px solid #196FE2;
+      border-bottom: 1.5px solid #196FE2;
       transform: rotate(45deg) translate(-1px, -1px);
     }
 
     @keyframes pulse-ring {
-      0%, 100% { box-shadow: 0 0 0 0 rgba(28,110,242,0.25); }
-      50%       { box-shadow: 0 0 0 4px rgba(28,110,242,0.08); }
+      0%, 100% { box-shadow: 0 0 0 0 rgba(25, 111, 226, 0.25); }
+      50%       { box-shadow: 0 0 0 3px rgba(25, 111, 226, 0.10); }
     }
 
-    /* ── Result ───────────────────────────────────────────── */
+    /* ── Result ──────────────────────────────────────────────── */
+
+    .result-content {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
 
     .result-header {
       display: flex;
@@ -197,15 +179,17 @@
     }
 
     .result-label {
-      font-size: 13px;
-      font-weight: 600;
-      color: var(--text);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      color: rgba(0, 0, 0, 0.64);
     }
 
     .result-stats {
-      font-family: var(--mono);
-      font-size: 11px;
-      color: var(--text-dim);
+      font-size: 12px;
+      font-weight: 400;
+      letter-spacing: -0.03em;
+      color: rgba(0, 0, 0, 0.40);
     }
 
     .result-preview-wrap {
@@ -213,74 +197,85 @@
     }
 
     .result-preview {
-      background: var(--surface);
-      padding: 12px 14px;
-      font-family: var(--mono);
-      font-size: 10px;
-      color: var(--text-muted);
-      line-height: 1.7;
-      max-height: 120px;
+      background: rgba(220, 220, 220, 0.32);
+      padding: 8px;
+      font-family: var(--sans);
+      font-size: 12px;
+      font-weight: 400;
+      letter-spacing: -0.03em;
+      color: rgba(0, 0, 0, 0.40);
+      line-height: 1.5;
+      height: 161px;
       overflow-y: auto;
       white-space: pre-wrap;
       word-break: break-word;
     }
 
-    .result-preview::-webkit-scrollbar { width: 0; }
-
     .btn-copy-preview {
       position: absolute;
-      top: 8px;
-      right: 8px;
-      background: var(--bg);
-      border: 1px solid var(--border);
-      padding: 3px 8px;
-      font-size: 11px;
+      top: 6px;
+      right: 6px;
+      background: transparent;
+      border: none;
+      padding: 2px;
       cursor: pointer;
-      color: var(--text-muted);
-      font-family: var(--sans);
-      transition: color 0.15s, border-color 0.15s;
+      color: rgba(0, 0, 0, 0.64);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: color 0.15s;
     }
 
-    .btn-copy-preview:hover {
-      color: var(--text);
-      border-color: var(--text-dim);
+    .btn-copy-preview:hover { color: rgba(0, 0, 0, 0.90); }
+    .btn-copy-preview svg { width: 14px; height: 14px; }
+
+    .result-actions {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      align-items: center;
+      width: 100%;
     }
 
     .btn-download {
       width: 100%;
-      padding: 13px 20px;
-      background: var(--text);
-      color: var(--bg);
+      padding: 12px;
+      background: #1B1B1B;
+      color: #FFFFFF;
       border: none;
       font-family: var(--sans);
-      font-size: 14px;
-      font-weight: 600;
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: -0.03em;
       cursor: pointer;
-      letter-spacing: -0.01em;
       transition: background 0.15s;
     }
 
     .btn-download:hover { background: #2a2a2a; }
 
     .separator {
-      text-align: center;
       font-size: 12px;
-      color: var(--text-dim);
+      font-weight: 400;
+      letter-spacing: -0.03em;
+      color: rgba(0, 0, 0, 0.64);
+      text-align: center;
     }
 
     .cli-row {
-      background: var(--surface);
-      padding: 10px 14px;
+      width: 100%;
+      background: rgba(220, 220, 220, 0.32);
+      padding: 8px;
       display: flex;
       align-items: center;
-      justify-content: space-between;
       gap: 8px;
     }
 
     .cli-cmd {
-      font-family: var(--mono);
-      font-size: 11px;
-      color: var(--text-muted);
+      font-family: var(--sans);
+      font-size: 12px;
+      font-weight: 400;
+      letter-spacing: -0.03em;
+      color: rgba(0, 0, 0, 0.40);
       flex: 1;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -291,7 +286,7 @@
       background: none;
       border: none;
       cursor: pointer;
-      color: var(--text-dim);
+      color: rgba(0, 0, 0, 0.64);
       padding: 2px;
       display: flex;
       align-items: center;
@@ -299,44 +294,28 @@
       transition: color 0.15s;
     }
 
-    .btn-copy-cli:hover { color: var(--text); }
+    .btn-copy-cli:hover { color: rgba(0, 0, 0, 0.90); }
     .btn-copy-cli svg { width: 14px; height: 14px; }
 
-    /* ── Settings ─────────────────────────────────────────── */
-
-    .settings-note {
-      font-size: 13px;
-      color: var(--text-muted);
-      line-height: 1.5;
+    .btn-refresh {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: rgba(0, 0, 0, 0.40);
+      padding: 2px;
+      display: flex;
+      align-items: center;
+      flex-shrink: 0;
+      transition: color 0.15s;
     }
+    .btn-refresh:hover { color: rgba(0, 0, 0, 0.90); }
+    .btn-refresh svg { width: 13px; height: 13px; }
 
-    .field-label {
-      font-size: 12px;
-      font-weight: 500;
-      color: var(--text);
-      display: block;
-      margin-bottom: 8px;
-    }
-
-    .field-input {
-      width: 100%;
-      background: var(--surface);
-      border: 1px solid transparent;
-      padding: 10px 14px;
-      color: var(--text);
-      font-family: var(--mono);
-      font-size: 12px;
-      outline: none;
-      transition: border-color 0.15s;
-    }
-
-    .field-input:focus { border-color: var(--blue); }
-    .field-input::placeholder { color: var(--text-dim); }
-
-    /* ── Error ────────────────────────────────────────────── */
+    /* ── Error ───────────────────────────────────────────────── */
 
     .error-box {
       background: #FFF2F2;
+      border-radius: 6px;
       padding: 12px 14px;
       font-size: 12px;
       color: #C0392B;
@@ -346,74 +325,78 @@
 </head>
 <body>
 
-  <!-- Header (always visible) -->
-  <div class="header">
+  <!-- Header: logo + subtitle (always visible, subtitle hidden on result/error) -->
+  <div class="view-header">
     <div class="logo">
-      <img src="../icons/logo.svg" alt="echo">
+      <img src="../icons/logo.svg" alt="Design.md Extractor">
     </div>
-    <button class="btn-settings" id="btnSettings" title="Settings">
-      <svg id="iconGear" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-        <circle cx="12" cy="12" r="3"/>
-        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-      </svg>
-      <svg id="iconClose" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none">
-        <line x1="18" y1="6" x2="6" y2="18"/>
-        <line x1="6" y1="6" x2="18" y2="18"/>
-      </svg>
-    </button>
+    <p class="subtitle" id="subtitle">
+      Extract design.md file from website: <strong id="siteHost">—</strong>
+    </p>
   </div>
 
-  <!-- Body -->
-  <div class="body">
+  <!-- VIEW: idle -->
+  <div data-view="idle" class="active">
+    <button class="btn-extract" id="btnExtract">Extract</button>
+  </div>
 
-    <!-- VIEW: idle -->
-    <div data-view="idle" class="active">
-      <div class="subtitle">
-        Extract design.md file from website: <strong id="siteHost">—</strong>
+  <!-- VIEW: progress -->
+  <div data-view="progress">
+    <div class="progress-steps">
+      <div class="step" id="step1">
+        <div class="step-circle"></div>
+        <span>Scanning DOM & Computed Styles</span>
       </div>
-      <button class="btn-extract" id="btnExtract">Extract</button>
+      <div class="step" id="step2">
+        <div class="step-circle"></div>
+        <span>Extracting Colors & Typography</span>
+      </div>
+      <div class="step" id="step3">
+        <div class="step-circle"></div>
+        <span>Analyzing Components & Tokens</span>
+      </div>
+      <div class="step" id="step4">
+        <div class="step-circle"></div>
+        <span>Generating Design.md File</span>
+      </div>
     </div>
+    <button class="btn-extract" disabled>Extract</button>
+  </div>
 
-    <!-- VIEW: progress -->
-    <div data-view="progress">
-      <div class="subtitle">
-        Extract design.md file from website: <strong id="progressHost">—</strong>
-      </div>
-      <div class="progress-steps">
-        <div class="step" id="step1">
-          <div class="step-circle"></div>
-          <span>Scanning DOM & Computed Styles</span>
-        </div>
-        <div class="step" id="step2">
-          <div class="step-circle"></div>
-          <span>Extracting Colors & Typography</span>
-        </div>
-        <div class="step" id="step3">
-          <div class="step-circle"></div>
-          <span>Analyzing Components & Tokens</span>
-        </div>
-        <div class="step" id="step4">
-          <div class="step-circle"></div>
-          <span>Generating Design.md File</span>
-        </div>
-      </div>
-      <button class="btn-extract" disabled>Extract</button>
-    </div>
+  <!-- VIEW: result -->
+  <div data-view="result">
 
-    <!-- VIEW: result -->
-    <div data-view="result">
+    <!-- Frame 13: header + preview -->
+    <div class="result-content">
       <div class="result-header">
-        <span class="result-label">Generated Design.md</span>
-        <span class="result-stats" id="resultStats"></span>
+        <span class="result-label">Extracted design.md</span>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span class="result-stats" id="resultStats"></span>
+          <button class="btn-refresh" id="btnRefresh" title="Re-extract">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+              <path d="M3 3v5h5"/>
+            </svg>
+          </button>
+        </div>
       </div>
       <div class="result-preview-wrap">
         <div class="result-preview" id="resultPreview"></div>
-        <button class="btn-copy-preview" id="btnCopyPreview">Copy</button>
+        <button class="btn-copy-preview" id="btnCopyPreview" title="Copy">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+          </svg>
+        </button>
       </div>
-      <button class="btn-download" id="btnDownload">Download design.md</button>
-      <div class="separator">then run in your project</div>
+    </div>
+
+    <!-- Frame 16: download + separator + CLI -->
+    <div class="result-actions">
+      <button class="btn-download" id="btnDownload">Download</button>
+      <span class="separator">then run in your project</span>
       <div class="cli-row">
-        <span class="cli-cmd" id="cliCmd">npx claude-code@latest --design.md</span>
+        <span class="cli-cmd" id="cliCmd"></span>
         <button class="btn-copy-cli" id="btnCopyCli" title="Copy command">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
             <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
@@ -423,21 +406,12 @@
       </div>
     </div>
 
-    <!-- VIEW: error -->
-    <div data-view="error">
-      <div class="error-box" id="errorMsg"></div>
-      <button class="btn-extract" id="btnRetry">Try again</button>
-    </div>
+  </div>
 
-    <!-- VIEW: settings -->
-    <div data-view="settings">
-      <div class="settings-note">Extraction works locally — no API key needed</div>
-      <div>
-        <label class="field-label" for="filenameInput">Output Filename</label>
-        <input type="text" class="field-input" id="filenameInput" placeholder="design.md" value="design.md">
-      </div>
-    </div>
-
+  <!-- VIEW: error -->
+  <div data-view="error">
+    <div class="error-box" id="errorMsg"></div>
+    <button class="btn-extract" id="btnRetry">Try again</button>
   </div>
 
   <script src="../lib/jszip.min.js"></script>
