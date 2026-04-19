@@ -21,12 +21,13 @@ else
   exit 1
 fi
 
-# Install commands
-mkdir -p "$PROJECT_DIR/.claude/commands/design-extractor"
+# Install commands (user-level: ~/.claude/commands/ so they're always available)
+USER_COMMANDS_DIR="$HOME/.claude/commands/design-extractor"
+mkdir -p "$USER_COMMANDS_DIR"
 COMMANDS_DIR="$SCRIPT_DIR/commands/design-extractor"
 if ls "$COMMANDS_DIR"/*.md 1>/dev/null 2>&1; then
-  cp "$COMMANDS_DIR"/*.md "$PROJECT_DIR/.claude/commands/design-extractor/"
-  echo "✓ Commands installed: /use-design, /update-design, /enrich-design"
+  cp "$COMMANDS_DIR"/*.md "$USER_COMMANDS_DIR/"
+  echo "✓ Commands installed: /design-extractor:use-design, /design-extractor:update-design, /design-extractor:enrich-design"
 else
   echo "⚠ Command files not found in $COMMANDS_DIR"
 fi
@@ -47,4 +48,4 @@ else
 fi
 
 echo ""
-echo "Design system ready. Run /enrich-design in Claude Code to add AI narrative to design.md."
+echo "Design system ready. Run /design-extractor:enrich-design in Claude Code to add AI narrative to design.md."
