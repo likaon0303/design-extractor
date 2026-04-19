@@ -47,15 +47,4 @@ else
 fi
 
 echo ""
-echo "Design system ready."
-echo ""
-cat << 'CLAUDE_PROMPT'
----
-@design.md has been installed. Use your AskUserQuestion tool to present the user with an interactive choice (arrow keys + Enter):
-
-Question: "design.md is ready. What would you like to do?"
-
-Options:
-- "Enrich with AI narrative" — read @design.md and add these sections directly to the file: Visual Theme & Atmosphere (2-3 sentences on mood, color temperature, layout rhythm), Typography Principles (3 bullets: font rationale, weight/tracking intent, hierarchy approach), Shadow & Elevation Philosophy (1-2 sentences), Interaction Philosophy (2 bullets: hover/focus meaning, motion language), Example Prompts (3 ready-to-use prompts with exact token values). Write the enriched file back to design.md.
-- "Use as-is" — design system is active and ready to use.
-CLAUDE_PROMPT
+echo "Design system ready. Run /enrich-design in Claude Code to add AI narrative to design.md."
