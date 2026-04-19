@@ -26,7 +26,7 @@ mkdir -p "$PROJECT_DIR/.claude/commands/design-extractor"
 COMMANDS_DIR="$SCRIPT_DIR/commands/design-extractor"
 if ls "$COMMANDS_DIR"/*.md 1>/dev/null 2>&1; then
   cp "$COMMANDS_DIR"/*.md "$PROJECT_DIR/.claude/commands/design-extractor/"
-  echo "✓ Commands installed: /use-design, /update-design"
+  echo "✓ Commands installed: /use-design, /update-design, /enrich-design"
 else
   echo "⚠ Command files not found in $COMMANDS_DIR"
 fi
