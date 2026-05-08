@@ -21,6 +21,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       document.getElementById('resultStats').textContent = savedResult.stats;
       const preview = savedResult.markdown.substring(0, 600) + (savedResult.markdown.length > 600 ? '\n...' : '');
       document.getElementById('resultPreview').textContent = preview;
+      document.getElementById('cliCloneCmd').textContent = savedResult.cloneCmd || `git clone ${REPO} ~/design-extractor`;
       document.getElementById('cliCmd').textContent = savedResult.cliCmd;
       showView('result');
       return;
@@ -51,6 +52,7 @@ function setupButtons() {
   document.getElementById('btnCopyCli')?.addEventListener('click', handleCopyCli);
   document.getElementById('btnSaveToProject')?.addEventListener('click', handleSaveToProject);
   document.getElementById('btnCopyEnrich')?.addEventListener('click', handleCopyEnrich);
+  document.getElementById('btnCopyClone')?.addEventListener('click', handleCopyClone);
 }
 
 // --- Navigation ---
@@ -152,12 +154,15 @@ function showResult(markdown) {
     try { return new URL(currentTabUrl).hostname.replace(/\./g, '-'); } catch { return 'site'; }
   })();
   downloadFilename = `design-${hostname}.md`;
-  const installAndCopyCmd = `[ -f ~/design-extractor/install.sh ] || git clone ${REPO} ~/design-extractor; cp ~/Downloads/${downloadFilename} ./design.md && bash ~/design-extractor/install.sh`;
-  document.getElementById('cliCmd').textContent = installAndCopyCmd;
-  document.getElementById('cliInstallLabel').textContent = '1. Install skill + copy file';
+
+  const cloneCmd = `git clone ${REPO} ~/design-extractor`;
+  const installCmd = `cp ~/Downloads/${downloadFilename} ./design.md && bash ~/design-extractor/install.sh`;
+
+  document.getElementById('cliCloneCmd').textContent = cloneCmd;
+  document.getElementById('cliCmd').textContent = installCmd;
+  document.getElementById('cliInstallLabel').textContent = '2. Copy file + install skill';
 
   document.getElementById('savedIndicator').classList.remove('visible');
-  document.getElementById('cliEnrichBlock').style.display = 'none';
 
   showView('result');
 
@@ -165,7 +170,8 @@ function showResult(markdown) {
     savedResult: {
       markdown,
       downloadFilename,
-      cliCmd: installAndCopyCmd,
+      cloneCmd,
+      cliCmd: installCmd,
       stats: document.getElementById('resultStats').textContent,
       hostname: (() => { try { return new URL(currentTabUrl).hostname; } catch { return ''; } })()
     }
@@ -213,13 +219,9 @@ async function handleSaveToProject() {
     document.getElementById('savedPath').textContent = `design.md saved to ${dirHandle.name}/`;
     document.getElementById('savedIndicator').classList.add('visible');
 
-    // Reveal step 2 enrich block
-    document.getElementById('cliEnrichBlock').style.display = 'flex';
-    document.getElementById('cliInstallLabel').textContent = '1. Install skill (one-time)';
-
-    // Update install CLI to skip the cp step
-    const installCmd = `[ -f ~/design-extractor/install.sh ] || git clone ${REPO} ~/design-extractor; bash ~/design-extractor/install.sh`;
-    document.getElementById('cliCmd').textContent = installCmd;
+    // Update steps: clone stays, install no longer needs cp
+    document.getElementById('cliInstallLabel').textContent = '2. Install skill';
+    document.getElementById('cliCmd').textContent = `bash ~/design-extractor/install.sh`;
 
   } catch (err) {
     if (err.name !== 'AbortError') {
@@ -231,6 +233,12 @@ async function handleSaveToProject() {
 async function handleCopyEnrich() {
   await navigator.clipboard.writeText('/enrich-design');
   flashCopied(document.getElementById('btnCopyEnrich'));
+}
+
+async function handleCopyClone() {
+  const cmd = document.getElementById('cliCloneCmd').textContent;
+  await navigator.clipboard.writeText(cmd);
+  flashCopied(document.getElementById('btnCopyClone'));
 }
 
 async function handleCopyCli() {

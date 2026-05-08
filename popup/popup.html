@@ -483,14 +483,14 @@
       <!-- Fallback: Download -->
       <button class="btn-download-link" id="btnDownload">or download to Downloads folder</button>
 
-      <span class="separator">then run in your project</span>
+      <span class="separator">then in Terminal.app (one-time setup)</span>
 
-      <!-- CLI: install step -->
-      <div class="cli-block" id="cliInstallBlock">
-        <span class="cli-label" id="cliInstallLabel">1. Install skill (one-time)</span>
+      <!-- CLI step 1: git clone -->
+      <div class="cli-block">
+        <span class="cli-label">1. Clone</span>
         <div class="cli-row">
-          <span class="cli-cmd" id="cliCmd"></span>
-          <button class="btn-copy-cli" id="btnCopyCli" title="Copy command">
+          <span class="cli-cmd" id="cliCloneCmd"></span>
+          <button class="btn-copy-cli" id="btnCopyClone" title="Copy">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
               <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
               <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
@@ -499,12 +499,27 @@
         </div>
       </div>
 
-      <!-- CLI: enrich step (shown only after Save to Project) -->
-      <div class="cli-block" id="cliEnrichBlock" style="display:none">
-        <span class="cli-label">2. Enrich</span>
+      <!-- CLI step 2: install -->
+      <div class="cli-block" id="cliInstallBlock">
+        <span class="cli-label" id="cliInstallLabel">2. Install skill</span>
+        <div class="cli-row">
+          <span class="cli-cmd" id="cliCmd"></span>
+          <button class="btn-copy-cli" id="btnCopyCli" title="Copy">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- CLI step 3: enrich (shown always, labeled as Claude Code) -->
+      <span class="separator">then in Claude Code</span>
+      <div class="cli-block" id="cliEnrichBlock">
+        <span class="cli-label">3. Enrich</span>
         <div class="cli-row">
           <span class="cli-cmd">/enrich-design</span>
-          <button class="btn-copy-cli" id="btnCopyEnrich" title="Copy command">
+          <button class="btn-copy-cli" id="btnCopyEnrich" title="Copy">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
               <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
               <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
