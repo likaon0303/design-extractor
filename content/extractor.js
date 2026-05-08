@@ -33,7 +33,10 @@
       zIndex: extractZIndex(),
       decorative: extractScrollbarAndSelection(),
       meta: extractMeta(),
-      theme: inferVisualTheme(colors, shadows, gradients, animations)
+      theme: inferVisualTheme(colors, shadows, gradients, animations),
+      darkMode: extractDarkModeTokens(),
+      scopedVars: extractScopedVars(),
+      fluidTypography: extractFluidTypography(),
     };
   }
 
@@ -165,7 +168,7 @@
   // ─── Typography ──────────────────────────────────────────────────────────────
 
   function extractTypography() {
-    const selectors = ['h1', 'h2', 'h3', 'h4', 'p', 'a', 'button', 'small', 'label', 'code'];
+    const selectors = ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'a', 'button', 'small', 'label', 'code', 'figcaption', 'blockquote'];
     const result = {};
 
     selectors.forEach(selector => {
@@ -173,6 +176,7 @@
       if (el) {
         const s = window.getComputedStyle(el);
         const featureSettings = s.getPropertyValue('font-feature-settings');
+        const variationSettings = s.getPropertyValue('font-variation-settings');
         result[selector] = {
           fontFamily: s.fontFamily,
           fontSize: s.fontSize,
@@ -181,7 +185,8 @@
           letterSpacing: s.letterSpacing !== 'normal' ? s.letterSpacing : '—',
           textTransform: s.textTransform !== 'none' ? s.textTransform : null,
           color: rgbToHex(s.color) || s.color,
-          fontFeatureSettings: featureSettings && featureSettings !== 'normal' ? featureSettings : null
+          fontFeatureSettings: featureSettings && featureSettings !== 'normal' ? featureSettings : null,
+          fontVariation: variationSettings && variationSettings !== 'normal' ? variationSettings : null,
         };
       }
     });
@@ -207,7 +212,9 @@
        'margin-top','margin-right','margin-bottom','margin-left',
        'gap','row-gap','column-gap'].forEach(prop => {
         const val = s.getPropertyValue(prop);
-        if (val && val !== '0px') spacingSet.add(val);
+        if (!val || val === '0px') return;
+        const num = parseFloat(val);
+        if (Number.isFinite(num) && num > 0) spacingSet.add(val);
       });
     }
 
@@ -716,7 +723,20 @@
   }
 
   function pickBestButton(buttons) {
-    // Prefer a button with visible background and text that contrasts it
+    // Prefer buttons with 'primary', 'cta', 'submit', 'action' in class/id
+    const primaryKeyword = buttons.find(btn => {
+      const cls = ((btn.className || '') + ' ' + (btn.id || '')).toLowerCase();
+      return /primary|cta|submit|action/.test(cls);
+    });
+    if (primaryKeyword) {
+      const s = window.getComputedStyle(primaryKeyword);
+      const bg = rgbToHex(s.backgroundColor);
+      if (bg && s.backgroundColor !== 'rgba(0, 0, 0, 0)') return primaryKeyword;
+    }
+
+    // Fallback: highest contrast ratio
+    let bestBtn = null;
+    let bestContrast = 0;
     for (const btn of buttons) {
       const s = window.getComputedStyle(btn);
       const bg = s.backgroundColor;
@@ -727,8 +747,12 @@
       const bgLum = getLuminance(bgHex);
       const textLum = getLuminance(textHex);
       const contrast = (Math.max(bgLum, textLum) + 0.05) / (Math.min(bgLum, textLum) + 0.05);
-      if (contrast > 1.5) return btn;
+      if (contrast > bestContrast) {
+        bestContrast = contrast;
+        bestBtn = btn;
+      }
     }
+    if (bestBtn && bestContrast > 2.5) return bestBtn;
     return buttons[0];
   }
 
@@ -841,6 +865,8 @@
   function extractInteractionStates() {
     const hover = {};
     const focus = {};
+    const focusVisible = {};
+    const active = {};
     const interesting = ['color', 'background-color', 'border-color', 'opacity', 'transform', 'box-shadow', 'text-decoration', 'outline'];
 
     Array.from(document.styleSheets).forEach(sheet => {
@@ -865,18 +891,113 @@
               if (Object.keys(ch).length > 0) hover[base] = ch;
             }
           }
-          if (sel.includes(':focus')) {
+          if (sel.includes(':focus-visible')) {
+            const base = sel.replace(/:focus-visible\b.*/g, '').trim();
+            if (!focusVisible[base] && Object.keys(focusVisible).length < 6) {
+              const ch = collectChanges();
+              if (Object.keys(ch).length > 0) focusVisible[base] = ch;
+            }
+          } else if (sel.includes(':focus')) {
             const base = sel.replace(/:focus\b.*/g, '').trim();
             if (!focus[base] && Object.keys(focus).length < 6) {
               const ch = collectChanges();
               if (Object.keys(ch).length > 0) focus[base] = ch;
             }
           }
+          if (sel.includes(':active') && !sel.includes(':inactive')) {
+            const base = sel.replace(/:active\b.*/g, '').trim();
+            if (base && !active[base] && Object.keys(active).length < 4) {
+              const ch = collectChanges();
+              if (Object.keys(ch).length > 0) active[base] = ch;
+            }
+          }
         });
       } catch(e) {}
     });
 
-    return { hover, focus };
+    return { hover, focus, focusVisible, active };
+  }
+
+  // ─── Dark Mode ───────────────────────────────────────────────────────────────
+
+  function extractDarkModeTokens() {
+    const tokens = {};
+    const darkSelectors = [':root', 'html', '[data-theme="dark"]', '[data-color-scheme="dark"]', '.dark'];
+
+    Array.from(document.styleSheets).forEach(sheet => {
+      try {
+        Array.from(sheet.cssRules || []).forEach(rule => {
+          if (rule instanceof CSSMediaRule) {
+            const media = rule.conditionText || rule.media.mediaText;
+            if (!media.includes('prefers-color-scheme') || !media.includes('dark')) return;
+            Array.from(rule.cssRules || []).forEach(inner => {
+              if (!darkSelectors.includes(inner.selectorText)) return;
+              const style = inner.style;
+              for (let i = 0; i < style.length; i++) {
+                const prop = style[i];
+                if (prop.startsWith('--')) tokens[prop] = style.getPropertyValue(prop).trim();
+              }
+            });
+          }
+          // [data-theme="dark"] outside media query
+          if (rule.selectorText && darkSelectors.slice(2).includes(rule.selectorText)) {
+            const style = rule.style;
+            for (let i = 0; i < style.length; i++) {
+              const prop = style[i];
+              if (prop.startsWith('--')) tokens[prop] = style.getPropertyValue(prop).trim();
+            }
+          }
+        });
+      } catch(e) {}
+    });
+
+    return tokens;
+  }
+
+  // ─── Scoped Component Variables ──────────────────────────────────────────────
+
+  function extractScopedVars() {
+    const scoped = {};
+    const skipSelectors = new Set([':root', 'html', '*', 'body']);
+
+    Array.from(document.styleSheets).forEach(sheet => {
+      try {
+        Array.from(sheet.cssRules || []).forEach(rule => {
+          if (!rule.style || !rule.selectorText) return;
+          if (skipSelectors.has(rule.selectorText)) return;
+          const vars = {};
+          for (let i = 0; i < rule.style.length; i++) {
+            const prop = rule.style[i];
+            if (prop.startsWith('--')) vars[prop] = rule.style.getPropertyValue(prop).trim();
+          }
+          if (Object.keys(vars).length > 0 && Object.keys(scoped).length < 12) {
+            scoped[rule.selectorText] = { ...(scoped[rule.selectorText] || {}), ...vars };
+          }
+        });
+      } catch(e) {}
+    });
+
+    return scoped;
+  }
+
+  // ─── Fluid Typography ────────────────────────────────────────────────────────
+
+  function extractFluidTypography() {
+    const results = [];
+
+    Array.from(document.styleSheets).forEach(sheet => {
+      try {
+        Array.from(sheet.cssRules || []).forEach(rule => {
+          if (!rule.style || !rule.selectorText) return;
+          const fontSize = rule.style.getPropertyValue('font-size');
+          if (fontSize && fontSize.includes('clamp(') && results.length < 8) {
+            results.push({ selector: rule.selectorText, value: fontSize });
+          }
+        });
+      } catch(e) {}
+    });
+
+    return results;
   }
 
   // ─── Message listener ────────────────────────────────────────────────────────
