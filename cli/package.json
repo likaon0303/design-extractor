@@ -1,13 +1,21 @@
 {
-  "name": "design-md-cli",
-  "version": "1.0.0",
-  "description": "Install design.md extracted by Design.md Extractor Chrome extension",
+  "name": "design-extractor-install",
+  "version": "1.0.4",
+  "description": "Install Design.md Extractor skills for Claude Code",
   "bin": {
-    "design-md-cli": "./index.js"
+    "design-extractor-install": "./index.js"
   },
+  "files": [
+    "index.js",
+    "commands/"
+  ],
   "engines": {
     "node": ">=18"
   },
-  "keywords": ["design-md", "design-system", "claude-code"],
-  "license": "MIT"
+  "keywords": ["design-md", "design-system", "claude-code", "claude"],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/likaon0303/design-extractor.git"
+  }
 }

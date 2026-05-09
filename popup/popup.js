@@ -3,7 +3,6 @@
 let generatedMarkdown = '';
 let currentTabUrl = '';
 let downloadFilename = 'design.md';
-const REPO = 'https://github.com/likaon0303/design-extractor';
 let currentView = 'idle';
 
 document.addEventListener('DOMContentLoaded', async () => {
@@ -21,7 +20,6 @@ document.addEventListener('DOMContentLoaded', async () => {
       document.getElementById('resultStats').textContent = savedResult.stats;
       const preview = savedResult.markdown.substring(0, 600) + (savedResult.markdown.length > 600 ? '\n...' : '');
       document.getElementById('resultPreview').textContent = preview;
-      document.getElementById('cliCloneCmd').textContent = savedResult.cloneCmd || `git clone ${REPO} ~/design-extractor`;
       document.getElementById('cliCmd').textContent = savedResult.cliCmd;
       showView('result');
       return;
@@ -52,7 +50,6 @@ function setupButtons() {
   document.getElementById('btnCopyCli')?.addEventListener('click', handleCopyCli);
   document.getElementById('btnSaveToProject')?.addEventListener('click', handleSaveToProject);
   document.getElementById('btnCopyEnrich')?.addEventListener('click', handleCopyEnrich);
-  document.getElementById('btnCopyClone')?.addEventListener('click', handleCopyClone);
 }
 
 // --- Navigation ---
@@ -155,12 +152,10 @@ function showResult(markdown) {
   })();
   downloadFilename = `design-${hostname}.md`;
 
-  const cloneCmd = `git clone ${REPO} ~/design-extractor`;
-  const installCmd = `cp ~/Downloads/${downloadFilename} ./design.md && bash ~/design-extractor/install.sh`;
+  const installCmd = `npx design-extractor-install`;
 
-  document.getElementById('cliCloneCmd').textContent = cloneCmd;
   document.getElementById('cliCmd').textContent = installCmd;
-  document.getElementById('cliInstallLabel').textContent = '2. Copy file + install skill';
+  document.getElementById('cliInstallLabel').textContent = 'Install Claude Code skills';
 
   document.getElementById('savedIndicator').classList.remove('visible');
 
@@ -170,7 +165,6 @@ function showResult(markdown) {
     savedResult: {
       markdown,
       downloadFilename,
-      cloneCmd,
       cliCmd: installCmd,
       stats: document.getElementById('resultStats').textContent,
       hostname: (() => { try { return new URL(currentTabUrl).hostname; } catch { return ''; } })()
@@ -220,8 +214,8 @@ async function handleSaveToProject() {
     document.getElementById('savedIndicator').classList.add('visible');
 
     // Update steps: clone stays, install no longer needs cp
-    document.getElementById('cliInstallLabel').textContent = '2. Install skill';
-    document.getElementById('cliCmd').textContent = `bash ~/design-extractor/install.sh`;
+    document.getElementById('cliInstallLabel').textContent = 'Install Claude Code skills';
+    document.getElementById('cliCmd').textContent = `npx design-extractor-install`;
 
   } catch (err) {
     if (err.name !== 'AbortError') {
@@ -233,12 +227,6 @@ async function handleSaveToProject() {
 async function handleCopyEnrich() {
   await navigator.clipboard.writeText('/enrich-design');
   flashCopied(document.getElementById('btnCopyEnrich'));
-}
-
-async function handleCopyClone() {
-  const cmd = document.getElementById('cliCloneCmd').textContent;
-  await navigator.clipboard.writeText(cmd);
-  flashCopied(document.getElementById('btnCopyClone'));
 }
 
 async function handleCopyCli() {
