@@ -17,13 +17,6 @@ Extract design systems from any deployed website and generate a `design.md` file
 4. Select this `design-extractor` folder
 5. The extension icon appears in your toolbar
 
-## Setup
-
-1. Click the extension icon
-2. Go to **Settings** tab
-3. Paste your [Anthropic API key](https://console.anthropic.com)
-4. Click **Save Settings**
-
 ## Usage
 
 1. Navigate to any deployed website
@@ -83,7 +76,6 @@ design-extractor/
 ## Requirements
 
 - Chrome 88+ (Manifest V3)
-- Anthropic API key with access to `claude-opus-4-5`
 
 ## Notes
 
